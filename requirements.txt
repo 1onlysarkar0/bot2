@@ -1,3 +1,4 @@
+
 requests
 httpx
 google
@@ -9,4 +10,6 @@ urllib3
 protobuf-decoder
 pytz
 aiohttp
-cfonts
+python-cfonts
+config-manager
+crypto
