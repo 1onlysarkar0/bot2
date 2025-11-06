@@ -1,20 +1,23 @@
-import requests , os , psutil , sys , jwt , pickle , json , binascii , time , urllib3 , base64 , datetime , re , socket , threading , ssl , pytz , aiohttp
+import requests, os, psutil, sys, jwt, pickle, json, binascii, time, urllib3, base64, datetime, re, socket, threading, ssl, pytz, aiohttp
 from protobuf_decoder.protobuf_decoder import Parser
-from xC4 import * ; from xHeaders import *
+from xC4 import *
+from xHeaders import *
 from datetime import datetime
 from google.protobuf.timestamp_pb2 import Timestamp
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
-from Pb2 import DEcwHisPErMsG_pb2 , MajoRLoGinrEs_pb2 , PorTs_pb2 , MajoRLoGinrEq_pb2 , sQ_pb2 , Team_msg_pb2
+from Pb2 import DEcwHisPErMsG_pb2, MajoRLoGinrEs_pb2, PorTs_pb2, MajoRLoGinrEq_pb2, sQ_pb2, Team_msg_pb2
 from cfonts import render, say
+from config_manager import config_manager
 
+import random
+import asyncio
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)  
-
-# VariabLes dyli 
+# VariabLes dyli
 #------------------------------------------#
 online_writer = None
 whisper_writer = None
@@ -24,9 +27,11 @@ spam_chat_id = None
 spam_uid = None
 Spy = False
 Chat_Leave = False
+
 #------------------------------------------#
- 
+
 ####################################
+
 
 #Clan-info-by-clan-id
 def Get_clan_info(clan_id):
@@ -58,7 +63,7 @@ Timestamp2 : {fix_num(data['timestamp2'])}\n\n
 Welcome Message: {data['welcome_message']}\n\n
 XP: {fix_num(data['xp'])}\n\n
 °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
-[FFB300][b][c]MADE BY SPIDEERIO YT
+[FFB300][b][c]MADE BY 1onlysarkar
             """
             return msg
         else:
@@ -68,16 +73,18 @@ XP: {fix_num(data['xp'])}\n\n
 Failed to get info, please try again later!!
 
 °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
-[FFB300][b][c]MADE BY SPIDEERIO YT
+[FFB300][b][c]MADE BY 1onlysarkar
             """
             return msg
     except:
         pass
+
+
 #GET INFO BY PLAYER ID
 def get_player_info(player_id):
     url = f"https://like2.vercel.app/player-info?uid={player_id}&server={server2}&key={key2}"
     response = requests.get(url)
-    print(response)    
+    print(response)
     if response.status_code == 200:
         try:
             r = response.json()
@@ -89,17 +96,15 @@ def get_player_info(player_id):
                 "Name": f"{r.get('nickname', 'N/A')}",
                 "UID": f" {r.get('accountId', 'N/A')}",
                 "Account Region": f"{r.get('region', 'N/A')}",
-                }
+            }
         except ValueError as e:
             pass
-            return {
-                "error": "Invalid JSON response"
-            }
+            return {"error": "Invalid JSON response"}
     else:
         pass
-        return {
-            "error": f"Failed to fetch data: {response.status_code}"
-        }
+        return {"error": f"Failed to fetch data: {response.status_code}"}
+
+
 #CHAT WITH AI
 def talk_with_ai(question):
     url = f"https://gemini-api-api-v2.vercel.app/prince/api/v1/ask?key=prince&ask={question}"
@@ -110,12 +115,14 @@ def talk_with_ai(question):
         return msg
     else:
         return "An error occurred while connecting to the server."
+
+
 #SPAM REQUESTS
 def spam_requests(player_id):
     # This URL now correctly points to the Flask app you provided
     url = f"https://like2.vercel.app/send_requests?uid={player_id}&server={server2}&key={key2}"
     try:
-        res = requests.get(url, timeout=20) # Added a timeout
+        res = requests.get(url, timeout=20)  # Added a timeout
         if res.status_code == 200:
             data = res.json()
             # Return a more descriptive message based on the API's JSON response
@@ -127,7 +134,10 @@ def spam_requests(player_id):
         # Handle cases where the API isn't running or is unreachable
         print(f"Could not connect to spam API: {e}")
         return "Failed to connect to spam API."
+
+
 ####################################
+
 
 # ** NEW INFO FUNCTION using the new API **
 def newinfo(uid):
@@ -142,7 +152,7 @@ def newinfo(uid):
     try:
         # Pass the parameters to requests.get()
         response = requests.get(url, params=params, timeout=10)
-        
+
         # Check if the request was successful
         if response.status_code == 200:
             data = response.json()
@@ -151,34 +161,43 @@ def newinfo(uid):
                 return {"status": "ok", "data": data}
             else:
                 # The API returned 200, but the data is not what we expect (e.g., error message in JSON)
-                return {"status": "error", "message": data.get("error", "Invalid ID or data not found.")}
+                return {
+                    "status": "error",
+                    "message": data.get("error",
+                                        "Invalid ID or data not found.")
+                }
         else:
             # The API returned an error status code (e.g., 404, 500)
             try:
                 # Try to get a specific error message from the API's response
-                error_msg = response.json().get('error', f"API returned status {response.status_code}")
+                error_msg = response.json().get(
+                    'error', f"API returned status {response.status_code}")
                 return {"status": "error", "message": error_msg}
             except ValueError:
                 # If the error response is not JSON
-                return {"status": "error", "message": f"API returned status {response.status_code}"}
+                return {
+                    "status": "error",
+                    "message": f"API returned status {response.status_code}"
+                }
 
     except requests.exceptions.RequestException as e:
         # Handle network errors (e.g., timeout, no connection)
         return {"status": "error", "message": f"Network error: {str(e)}"}
-    except ValueError: 
+    except ValueError:
         # Handle cases where the response is not valid JSON
-        return {"status": "error", "message": "Invalid JSON response from API."}
+        return {
+            "status": "error",
+            "message": "Invalid JSON response from API."
+        }
 
-	
+
 #ADDING-100-LIKES-IN-24H
 def send_likes(uid):
     try:
         likes_api_response = requests.get(
-             f"https://yourlikeapi/like?uid={uid}&server_name={server2}&x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass={BYPASS_TOKEN}",
-             timeout=15
-             )
-      
-      
+            f"https://yourlikeapi/like?uid={uid}&server_name={server2}&x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass={BYPASS_TOKEN}",
+            timeout=15)
+
         if likes_api_response.status_code != 200:
             return f"""
 [C][B][FF0000]━━━━━
@@ -209,7 +228,7 @@ Please check if the uid is correct.
 [FFFFFF]Likes Before : [00FF00]{likes_before}  
 [FFFFFF]Likes After : [00FF00]{likes_after}  
 [C][B][11EAFD]‎━━━━━━━━━━━━
-[C][B][FFB300]Subscribe: [FFFFFF]SPIDEERIO YT [00FF00]!!
+[C][B][FFB300]Instagram: [FFFFFF]@1onlysarkar [00FF00]!!
 """
         elif status == 2 or likes_before == likes_after:
             # 🚫 Already claimed / Maxed
@@ -251,6 +270,8 @@ Is the API server (app.py) running?
 [FF0000]{str(e)}
 ━━━━━
 """
+
+
 ####################################
 #CHECK ACCOUNT IS BANNED
 
@@ -262,22 +283,27 @@ Hr = {
     'Expect': "100-continue",
     'X-Unity-Version': "2018.4.11f1",
     'X-GA': "v1 1",
-    'ReleaseVersion': "OB51"}
+    'ReleaseVersion': "OB51"
+}
+
 
 # ---- Random Colores ----
 def get_random_color():
     colors = [
-        "[FF0000]", "[00FF00]", "[0000FF]", "[FFFF00]", "[FF00FF]", "[00FFFF]", "[FFFFFF]", "[FFA500]",
-        "[A52A2A]", "[800080]", "[000000]", "[808080]", "[C0C0C0]", "[FFC0CB]", "[FFD700]", "[ADD8E6]",
-        "[90EE90]", "[D2691E]", "[DC143C]", "[00CED1]", "[9400D3]", "[F08080]", "[20B2AA]", "[FF1493]",
-        "[7CFC00]", "[B22222]", "[FF4500]", "[DAA520]", "[00BFFF]", "[00FF7F]", "[4682B4]", "[6495ED]",
-        "[5F9EA0]", "[DDA0DD]", "[E6E6FA]", "[B0C4DE]", "[556B2F]", "[8FBC8F]", "[2E8B57]", "[3CB371]",
-        "[6B8E23]", "[808000]", "[B8860B]", "[CD5C5C]", "[8B0000]", "[FF6347]", "[FF8C00]", "[BDB76B]",
-        "[9932CC]", "[8A2BE2]", "[4B0082]", "[6A5ACD]", "[7B68EE]", "[4169E1]", "[1E90FF]", "[191970]",
-        "[00008B]", "[000080]", "[008080]", "[008B8B]", "[B0E0E6]", "[AFEEEE]", "[E0FFFF]", "[F5F5DC]",
-        "[FAEBD7]"
+        "[FF0000]", "[00FF00]", "[0000FF]", "[FFFF00]", "[FF00FF]", "[00FFFF]",
+        "[FFFFFF]", "[FFA500]", "[A52A2A]", "[800080]", "[000000]", "[808080]",
+        "[C0C0C0]", "[FFC0CB]", "[FFD700]", "[ADD8E6]", "[90EE90]", "[D2691E]",
+        "[DC143C]", "[00CED1]", "[9400D3]", "[F08080]", "[20B2AA]", "[FF1493]",
+        "[7CFC00]", "[B22222]", "[FF4500]", "[DAA520]", "[00BFFF]", "[00FF7F]",
+        "[4682B4]", "[6495ED]", "[5F9EA0]", "[DDA0DD]", "[E6E6FA]", "[B0C4DE]",
+        "[556B2F]", "[8FBC8F]", "[2E8B57]", "[3CB371]", "[6B8E23]", "[808000]",
+        "[B8860B]", "[CD5C5C]", "[8B0000]", "[FF6347]", "[FF8C00]", "[BDB76B]",
+        "[9932CC]", "[8A2BE2]", "[4B0082]", "[6A5ACD]", "[7B68EE]", "[4169E1]",
+        "[1E90FF]", "[191970]", "[00008B]", "[000080]", "[008080]", "[008B8B]",
+        "[B0E0E6]", "[AFEEEE]", "[E0FFFF]", "[F5F5DC]", "[FAEBD7]"
     ]
     return random.choice(colors)
+
 
 async def encrypted_proto(encoded_hex):
     key = b'Yg&tc%DEuh6%Zc^8'
@@ -286,29 +312,37 @@ async def encrypted_proto(encoded_hex):
     padded_message = pad(encoded_hex, AES.block_size)
     encrypted_payload = cipher.encrypt(padded_message)
     return encrypted_payload
-    
-async def GeNeRaTeAccEss(uid , password):
+
+
+async def GeNeRaTeAccEss(uid, password):
     url = "https://100067.connect.garena.com/oauth/guest/token/grant"
     headers = {
         "Host": "100067.connect.garena.com",
         "User-Agent": (await Ua()),
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "close"}
+        "Connection": "close"
+    }
     data = {
         "uid": uid,
         "password": password,
         "response_type": "token",
         "client_type": "2",
-        "client_secret": "2ee44819e9b4598845141067b281621874d0d5d7af9d8f7e00c1e54715b7d1e3",
-        "client_id": "100067"}
+        "client_secret":
+        "2ee44819e9b4598845141067b281621874d0d5d7af9d8f7e00c1e54715b7d1e3",
+        "client_id": "100067"
+    }
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=Hr, data=data) as response:
-            if response.status != 200: return "Failed to get access token"
+            if response.status != 200:
+                print(f"Failed to get access token: {response.status}")
+                return (None, None)
             data = await response.json()
             open_id = data.get("open_id")
             access_token = data.get("access_token")
-            return (open_id, access_token) if open_id and access_token else (None, None)
+            return (open_id,
+                    access_token) if open_id and access_token else (None, None)
+
 
 async def EncRypTMajoRLoGin(open_id, access_token):
     major_login = MajoRLoGinrEq_pb2.MajorLogin()
@@ -370,7 +404,8 @@ async def EncRypTMajoRLoGin(open_id, access_token):
     major_login.origin_platform_type = "4"
     major_login.primary_platform_type = "4"
     string = major_login.SerializeToString()
-    return  await encrypted_proto(string)
+    return await encrypted_proto(string)
+
 
 async def MajorLogin(payload):
     url = "https://loginbp.ggblueshark.com/MajorLogin"
@@ -378,43 +413,51 @@ async def MajorLogin(payload):
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=payload, headers=Hr, ssl=ssl_context) as response:
+        async with session.post(url, data=payload, headers=Hr,
+                                ssl=ssl_context) as response:
             if response.status == 200: return await response.read()
             return None
+
 
 async def GetLoginData(base_url, payload, token):
     url = f"{base_url}/GetLoginData"
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    Hr['Authorization']= f"Bearer {token}"
+    Hr['Authorization'] = f"Bearer {token}"
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=payload, headers=Hr, ssl=ssl_context) as response:
+        async with session.post(url, data=payload, headers=Hr,
+                                ssl=ssl_context) as response:
             if response.status == 200: return await response.read()
             return None
+
 
 async def DecRypTMajoRLoGin(MajoRLoGinResPonsE):
     proto = MajoRLoGinrEs_pb2.MajorLoginRes()
     proto.ParseFromString(MajoRLoGinResPonsE)
     return proto
 
+
 async def DecRypTLoGinDaTa(LoGinDaTa):
     proto = PorTs_pb2.GetLoginData()
     proto.ParseFromString(LoGinDaTa)
     return proto
+
 
 async def DecodeWhisperMessage(hex_packet):
     packet = bytes.fromhex(hex_packet)
     proto = DEcwHisPErMsG_pb2.DecodeWhisper()
     proto.ParseFromString(packet)
     return proto
-    
+
+
 async def decode_team_packet(hex_packet):
     packet = bytes.fromhex(hex_packet)
     proto = sQ_pb2.recieved_chat()
     proto.ParseFromString(packet)
     return proto
-    
+
+
 async def xAuThSTarTuP(TarGeT, token, timestamp, key, iv):
     uid_hex = hex(TarGeT)[2:]
     uid_length = len(uid_hex)
@@ -426,31 +469,45 @@ async def xAuThSTarTuP(TarGeT, token, timestamp, key, iv):
     elif uid_length == 8: headers = '00000000'
     elif uid_length == 10: headers = '000000'
     elif uid_length == 7: headers = '000000000'
-    else: print('Unexpected length') ; headers = '0000000'
+    else:
+        print('Unexpected length')
+        headers = '0000000'
     return f"0115{headers}{uid_hex}{encrypted_timestamp}00000{encrypted_packet_length}{encrypted_packet}"
-     
+
+
 async def cHTypE(H):
     if not H: return 'Squid'
     elif H == 1: return 'CLan'
     elif H == 2: return 'PrivaTe'
-    
-async def SEndMsG(H , message , Uid , chat_id , key , iv):
+
+
+async def SEndMsG(H, message, Uid, chat_id, key, iv):
     TypE = await cHTypE(H)
-    if TypE == 'Squid': msg_packet = await xSEndMsgsQ(message , chat_id , key , iv)
-    elif TypE == 'CLan': msg_packet = await xSEndMsg(message , 1 , chat_id , chat_id , key , iv)
-    elif TypE == 'PrivaTe': msg_packet = await xSEndMsg(message , 2 , Uid , Uid , key , iv)
+    if TypE == 'Squid':
+        msg_packet = await xSEndMsgsQ(message, chat_id, key, iv)
+    elif TypE == 'CLan':
+        msg_packet = await xSEndMsg(message, 1, chat_id, chat_id, key, iv)
+    elif TypE == 'PrivaTe':
+        msg_packet = await xSEndMsg(message, 2, Uid, Uid, key, iv)
     return msg_packet
 
-async def SEndPacKeT(OnLinE , ChaT , TypE , PacKeT):
-    if TypE == 'ChaT' and ChaT: whisper_writer.write(PacKeT) ; await whisper_writer.drain()
-    elif TypE == 'OnLine': online_writer.write(PacKeT) ; await online_writer.drain()
-    else: return 'UnsoPorTed TypE ! >> ErrrroR (:():)' 
-           
+
+async def SEndPacKeT(OnLinE, ChaT, TypE, PacKeT):
+    if TypE == 'ChaT' and ChaT:
+        whisper_writer.write(PacKeT)
+        await whisper_writer.drain()
+    elif TypE == 'OnLine':
+        online_writer.write(PacKeT)
+        await online_writer.drain()
+    else:
+        return 'UnsoPorTed TypE ! >> ErrrroR (:():)'
+
+
 async def TcPOnLine(ip, port, key, iv, AutHToKen, reconnect_delay=0.5):
-    global online_writer , spam_room , whisper_writer , spammer_uid , spam_chat_id , spam_uid , XX , uid , Spy,data2, Chat_Leave
+    global online_writer, spam_room, whisper_writer, spammer_uid, spam_chat_id, spam_uid, XX, uid, Spy, data2, Chat_Leave
     while True:
         try:
-            reader , writer = await asyncio.open_connection(ip, int(port))
+            reader, writer = await asyncio.open_connection(ip, int(port))
             online_writer = writer
             bytes_payload = bytes.fromhex(AutHToKen)
             online_writer.write(bytes_payload)
@@ -458,54 +515,83 @@ async def TcPOnLine(ip, port, key, iv, AutHToKen, reconnect_delay=0.5):
             while True:
                 data2 = await reader.read(9999)
                 if not data2: break
-                
+
                 if data2.hex().startswith('0500') and len(data2.hex()) > 1000:
                     try:
                         print(data2.hex()[10:])
                         packet = await DeCode_PackEt(data2.hex()[10:])
                         print(packet)
                         packet = json.loads(packet)
-                        OwNer_UiD , CHaT_CoDe , SQuAD_CoDe = await GeTSQDaTa(packet)
+                        OwNer_UiD, CHaT_CoDe, SQuAD_CoDe = await GeTSQDaTa(
+                            packet)
 
-                        JoinCHaT = await AutH_Chat(3 , OwNer_UiD , CHaT_CoDe, key,iv)
-                        await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , JoinCHaT)
+                        JoinCHaT = await AutH_Chat(3, OwNer_UiD, CHaT_CoDe,
+                                                   key, iv)
+                        await SEndPacKeT(whisper_writer, online_writer, 'ChaT',
+                                         JoinCHaT)
 
-
-                        message = f'[B][C]{get_random_color()}\n- WeLComE To Emote Bot ! '
-                        P = await SEndMsG(0 , message , OwNer_UiD , OwNer_UiD , key , iv)
-                        await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , P)
+                        # Only send welcome message if group responses are enabled
+                        if config_manager.get_group_responses():
+                            message = f'[B][C]{get_random_color()}\n- WeLComE To Emote Bot ! '
+                            P = await SEndMsG(0, message, OwNer_UiD, OwNer_UiD,
+                                              key, iv)
+                            await SEndPacKeT(whisper_writer, online_writer,
+                                             'ChaT', P)
 
                     except:
-                        if data2.hex().startswith('0500') and len(data2.hex()) > 1000:
+                        if data2.hex().startswith('0500') and len(
+                                data2.hex()) > 1000:
                             try:
                                 print(data2.hex()[10:])
                                 packet = await DeCode_PackEt(data2.hex()[10:])
                                 print(packet)
                                 packet = json.loads(packet)
-                                OwNer_UiD , CHaT_CoDe , SQuAD_CoDe = await GeTSQDaTa(packet)
+                                OwNer_UiD, CHaT_CoDe, SQuAD_CoDe = await GeTSQDaTa(
+                                    packet)
 
-                                JoinCHaT = await AutH_Chat(3 , OwNer_UiD , CHaT_CoDe, key,iv)
-                                await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , JoinCHaT)
+                                JoinCHaT = await AutH_Chat(
+                                    3, OwNer_UiD, CHaT_CoDe, key, iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', JoinCHaT)
 
-
-                                message = f'[B][C]{get_random_color()}\n- WeLComE To Emote Bot ! \n\n{get_random_color()}- Commands : @a {xMsGFixinG('player_uid')} {xMsGFixinG('909000001')}\n\n[00FF00]Dev : @{xMsGFixinG('Spideerio')}'
-                                P = await SEndMsG(0 , message , OwNer_UiD , OwNer_UiD , key , iv)
-                                await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , P)
+                                # Only send welcome message if group responses are enabled
+                                if config_manager.get_group_responses():
+                                    player_uid_msg = xMsGFixinG('player_uid')
+                                    player_id_msg = xMsGFixinG('909000001')
+                                    dev_msg = xMsGFixinG('1onlysarkar')
+                                    message = f'[B][C]{get_random_color()}\n- WeLComE To Emote Bot ! \n\n{get_random_color()}- Commands : @a {player_uid_msg} {player_id_msg}\n\n[00FF00]Dev : @{dev_msg}'
+                                    P = await SEndMsG(0, message, OwNer_UiD,
+                                                      OwNer_UiD, key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
                             except:
                                 pass
 
-            online_writer.close() ; await online_writer.wait_closed() ; online_writer = None
+            online_writer.close()
+            await online_writer.wait_closed()
+            online_writer = None
 
-        except Exception as e: print(f"- ErroR With {ip}:{port} - {e}") ; online_writer = None
+        except Exception as e:
+            print(f"- ErroR With {ip}:{port} - {e}")
+            online_writer = None
         await asyncio.sleep(reconnect_delay)
-                            
-async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event, region , reconnect_delay=0.5):
+
+
+async def TcPChaT(ip,
+                  port,
+                  AutHToKen,
+                  key,
+                  iv,
+                  LoGinDaTaUncRypTinG,
+                  ready_event,
+                  region,
+                  reconnect_delay=0.5):
     print(region, 'TCP CHAT')
 
-    global spam_room , whisper_writer , spammer_uid , spam_chat_id , spam_uid , online_writer , chat_id , XX , uid , Spy,data2, Chat_Leave
+    global spam_room, whisper_writer, spammer_uid, spam_chat_id, spam_uid, online_writer, chat_id, XX, uid, Spy, data2, Chat_Leave
     while True:
         try:
-            reader , writer = await asyncio.open_connection(ip, int(port))
+            reader, writer = await asyncio.open_connection(ip, int(port))
             whisper_writer = writer
             bytes_payload = bytes.fromhex(AutHToKen)
             whisper_writer.write(bytes_payload)
@@ -517,12 +603,14 @@ async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event
                 print('\n - TarGeT BoT in CLan ! ')
                 print(f' - Clan Uid > {clan_id}')
                 print(f' - BoT ConnEcTed WiTh CLan ChaT SuccEssFuLy ! ')
-                pK = await AuthClan(clan_id , clan_compiled_data , key , iv)
-                if whisper_writer: whisper_writer.write(pK) ; await whisper_writer.drain()
+                pK = await AuthClan(clan_id, clan_compiled_data, key, iv)
+                if whisper_writer:
+                    whisper_writer.write(pK)
+                    await whisper_writer.drain()
             while True:
                 data = await reader.read(9999)
                 if not data: break
-                
+
                 if data.hex().startswith("120000"):
 
                     msg = await DeCode_PackEt(data.hex()[10:])
@@ -536,50 +624,56 @@ async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event
                     except:
                         response = None
 
-
                     if response:
                         if inPuTMsG.startswith(("/5")):
                             try:
                                 dd = chatdata['5']['data']['16']
                                 print('msg in private')
                                 message = f"[B][C]{get_random_color()}\n\nAccepT My Invitation FasT\n\n"
-                                P = await SEndMsG(response.Data.chat_type , message , uid , chat_id , key , iv)
-                                await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , P)
-                                PAc = await OpEnSq(key , iv,region)
-                                await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , PAc)
-                                C = await cHSq(5, uid ,key, iv,region)
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+                                PAc = await OpEnSq(key, iv, region)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'OnLine', PAc)
+                                C = await cHSq(5, uid, key, iv, region)
                                 await asyncio.sleep(0.5)
-                                await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , C)
-                                V = await SEnd_InV(5 , uid , key , iv,region)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'OnLine', C)
+                                V = await SEnd_InV(5, uid, key, iv, region)
                                 await asyncio.sleep(0.5)
-                                await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , V)
-                                E = await ExiT(None , key , iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'OnLine', V)
+                                E = await ExiT(None, key, iv)
                                 await asyncio.sleep(3)
-                                await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , E)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'OnLine', E)
                             except:
                                 print('msg in squad')
-
-
 
                         if inPuTMsG.startswith('/x/'):
                             CodE = inPuTMsG.split('/x/')[1]
                             try:
                                 dd = chatdata['5']['data']['16']
                                 print('msg in private')
-                                EM = await GenJoinSquadsPacket(CodE , key , iv)
-                                await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , EM)
-
+                                EM = await GenJoinSquadsPacket(CodE, key, iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'OnLine', EM)
 
                             except:
                                 print('msg in squad')
 
                         if inPuTMsG.startswith('/solo'):
-                            leave = await ExiT(uid,key,iv)
-                            await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , leave)
+                            leave = await ExiT(uid, key, iv)
+                            await SEndPacKeT(whisper_writer, online_writer,
+                                             'OnLine', leave)
 
                         if inPuTMsG.strip().startswith('/s'):
-                            EM = await FS(key , iv)
-                            await SEndPacKeT(whisper_writer , online_writer , 'OnLine' , EM)
+                            EM = await FS(key, iv)
+                            await SEndPacKeT(whisper_writer, online_writer,
+                                             'OnLine', EM)
 
                         if inPuTMsG.strip().startswith('!e'):
 
@@ -587,8 +681,11 @@ async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event
                                 dd = chatdata['5']['data']['16']
                                 print('msg in private')
                                 message = f"[B][C]{get_random_color()}\n\nCommand Available OnLy In SQuaD ! \n\n"
-                                P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
-                                await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
 
                             except:
                                 print('msg in squad')
@@ -597,7 +694,9 @@ async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event
                                 print(response.Data.chat_type, uid, chat_id)
                                 message = f'[B][C]{get_random_color()}\nACITVE TarGeT -> {xMsGFixinG(uid)}\n'
 
-                                P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
 
                                 uid2 = uid3 = uid4 = uid5 = None
                                 s = False
@@ -622,55 +721,452 @@ async def TcPChaT(ip, port, AutHToKen, key, iv, LoGinDaTaUncRypTinG, ready_event
 
                                 if not s:
                                     try:
-                                        await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
 
-                                        H = await Emote_k(uid, idT, key, iv,region)
-                                        await SEndPacKeT(whisper_writer, online_writer, 'OnLine', H)
+                                        H = await Emote_k(
+                                            uid, idT, key, iv, region)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', H)
 
                                         if uid2:
-                                            H = await Emote_k(uid2, idT, key, iv,region)
-                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', H)
+                                            H = await Emote_k(
+                                                uid2, idT, key, iv, region)
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'OnLine', H)
                                         if uid3:
-                                            H = await Emote_k(uid3, idT, key, iv,region)
-                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', H)
+                                            H = await Emote_k(
+                                                uid3, idT, key, iv, region)
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'OnLine', H)
                                         if uid4:
-                                            H = await Emote_k(uid4, idT, key, iv,region)
-                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', H)
+                                            H = await Emote_k(
+                                                uid4, idT, key, iv, region)
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'OnLine', H)
                                         if uid5:
-                                            H = await Emote_k(uid5, idT, key, iv,region)
-                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', H)
-                                        
+                                            H = await Emote_k(
+                                                uid5, idT, key, iv, region)
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'OnLine', H)
 
                                     except Exception as e:
                                         pass
 
+                        # Check if message is private chat (type 2)
+                        is_private = False
+                        try:
+                            dd = chatdata['5']['data']['16']
+                            is_private = True
+                        except:
+                            is_private = False
 
-                        if inPuTMsG in ("hi" , "hello" , "fen" , "help"):
-                            uid = response.Data.uid
-                            chat_id = response.Data.Chat_ID
-                            message = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]☂︎Add 100 Likes\n[FFFFFF]/like/(uid)\n[ffd319][b]❄︎Join Bot In Group\n[FFFFFF][b]/x/(teamcode)\n[ffd319][b]❀To Perform AnyEmote\n[FFFFFF][b]!e (uid) (emote) code)\n[ffd319]⚡Make 5 Player Group:\n[FFFFFF]❄️/5 \n[ffd319][b][c]🎵Make leave Bot \n[FFFFFF][b][c]©️/solo\n[00FF7F][B]!!admin Commond!!\n[ffd319][b]To Stop The Bot\n[FFFFFF][b]/stop\n[ffd319][b]To Mute Bot\n[FFFFFF][b]/mute (time)\n[C][B][FFB300]OWNER: SHAZZ\n[00FFFF]━━━━━━━━━━━━\n[00FF00]\n[00ff00][B]⚓Thankyou For Joining Our Guild⚓                            '
-                            P = await SEndMsG(response.Data.chat_type , message , uid , chat_id , key , iv)
-                            await SEndPacKeT(whisper_writer , online_writer , 'ChaT' , P)
+                        # Secret toggle command (private only)
+                        if inPuTMsG == "/mg" and is_private:
+                            current = config_manager.get_group_responses()
+                            config_manager.set_group_responses(not current)
+                            # No response sent (secret command)
+
+                        # Status check command (private only)
+                        elif inPuTMsG == "/89" and is_private:
+                            status = "ENABLED" if config_manager.get_group_responses(
+                            ) else "DISABLED"
+                            color = get_random_color()
+                            message = f'[B][C]{color}Group Responses\n{color}--------------------\n{color}\n{color}Status: {status}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                            P = await SEndMsG(response.Data.chat_type, message,
+                                              uid, chat_id, key, iv)
+                            await SEndPacKeT(whisper_writer, online_writer,
+                                             'ChaT', P)
+
+                        # Spam invites command (private only)
+                        elif inPuTMsG.startswith('/spm/') and is_private:
+                            parts = inPuTMsG.split('/')
+                            if len(parts) >= 4:
+                                try:
+                                    times = int(parts[2])
+                                    target_uid = parts[3]
+                                    color = get_random_color()
+                                    uid_formatted = xMsGFixinG(target_uid)
+                                    message = f'[B][C]{color}\n{color} INVITES SENDING\n{color}\n{color}--------------------\n{color}\n{color}Starting invitation process\n{color} \n{color}Total Invites: {times}\n{color}Target Player: {uid_formatted}\n{color} \n{color}Please wait while I send them\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar\n{color}'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+
+                                    for i in range(times):
+                                        PAc = await OpEnSq(key, iv, region)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', PAc)
+                                        await asyncio.sleep(
+                                            random.uniform(0.15, 0.2))
+
+                                        C = await cHSq(5, int(target_uid), key,
+                                                       iv, region)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', C)
+                                        await asyncio.sleep(
+                                            random.uniform(0.15, 0.2))
+
+                                        V = await SEnd_InV(
+                                            5, int(target_uid), key, iv,
+                                            region)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', V)
+                                        await asyncio.sleep(
+                                            random.uniform(0.15, 0.2))
+
+                                        E = await ExiT(None, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', E)
+                                        await asyncio.sleep(
+                                            random.uniform(0.15, 0.2))
+                                except:
+                                    pass
+
+                        # Set owner UIDs command (private only)
+                        elif inPuTMsG.startswith('/uid/'):
+                            if not is_private:
+                                continue
+                            parts = inPuTMsG.split('/')
+                            uids = [p for p in parts[2:] if p.strip()]
+                            if uids:
+                                config_manager.set_owner_uids(uids)
+                                color = get_random_color()
+                                uid_list = '\n'.join(
+                                    [f'{color}{xMsGFixinG(u)}' for u in uids])
+                                message = f'[B][C]{color}Owner UID Set\n{color}--------------------\n{color}\n{color}Successfully set {len(uids)}\n{color}owner UID(s)\n{color}\n{uid_list}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+
+                        # Create emote command (private only)
+                        elif inPuTMsG.startswith(
+                                '/e/') and not inPuTMsG.startswith('/emt'):
+                            if not is_private:
+                                continue
+                            parts = inPuTMsG.split('/')
+                            if len(parts) >= 4:
+                                name = parts[2]
+                                code = parts[3]
+                                config_manager.add_emote(name, code)
+                                color = get_random_color()
+                                message = f'[B][C]{color}Emote Command Saved\n{color}--------------------\n{color}\n{color}Command /{name}\n{color}saved successfully with\n{color}emote {code}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+
+                        # Remove emote command (private only)
+                        elif inPuTMsG.startswith('/rmv/'):
+                            if not is_private:
+                                continue
+                            parts = inPuTMsG.split('/')
+                            if len(parts) >= 3:
+                                name = parts[2]
+                                if config_manager.remove_emote(name):
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Emote Removed\n{color}--------------------\n{color}\n{color}Command /{name}\n{color}removed successfully\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                else:
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Emote Not Found\n{color}--------------------\n{color}\n{color}Command /{name}\n{color}does not exist\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+
+                        # List all emotes command (private only)
+                        elif inPuTMsG == '/emt':
+                            if not is_private:
+                                continue
+                            all_emotes = config_manager.get_all_emotes()
+                            if all_emotes:
+                                emote_names = list(all_emotes.keys())
+                                chunks = [
+                                    emote_names[i:i + 10]
+                                    for i in range(0, len(emote_names), 10)
+                                ]
+                                for chunk in chunks:
+                                    message = ' '.join(
+                                        [f'/{name}' for name in chunk])
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+                                    await asyncio.sleep(0.3)
+
+                        # Execute all emotes command (private only)
+                        elif inPuTMsG.startswith('/all/'):
+                            if not is_private:
+                                continue
+                            parts = inPuTMsG.split('/')
+                            if len(parts) >= 3:
+                                try:
+                                    seconds = float(parts[2])
+                                    all_emotes = config_manager.get_all_emotes(
+                                    )
+                                    owner_uids = config_manager.get_owner_uids(
+                                    )
+
+                                    if not owner_uids:
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}UID Not Found\n{color}--------------------\n{color}\n{color}No UID found\n{color}Please set using\n{color}/uid/{{uid}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                        P = await SEndMsG(
+                                            response.Data.chat_type, message,
+                                            uid, chat_id, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
+                                    elif not all_emotes:
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}No Emotes Found\n{color}--------------------\n{color}\n{color}No emotes saved\n{color}Add emotes using\n{color}/e/{{name}}/{{code}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                        P = await SEndMsG(
+                                            response.Data.chat_type, message,
+                                            uid, chat_id, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
+                                    else:
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}Starting All Emotes\n{color}--------------------\n{color}\n{color}Executing {len(all_emotes)} emotes\n{color}Interval: {seconds}s\n{color}UIDs: {len(owner_uids)}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                        P = await SEndMsG(
+                                            response.Data.chat_type, message,
+                                            uid, chat_id, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
+
+                                        for name, code in all_emotes.items():
+                                            tasks = [
+                                                Emote_k(
+                                                    int(owner_uid), int(code),
+                                                    key, iv, region)
+                                                for owner_uid in owner_uids
+                                            ]
+                                            packets = await asyncio.gather(
+                                                *tasks)
+                                            for packet in packets:
+                                                await SEndPacKeT(
+                                                    whisper_writer,
+                                                    online_writer, 'OnLine',
+                                                    packet)
+
+                                            color = get_random_color()
+                                            message = f'[B][C]{color}Emote Executed\n{color}--------------------\n{color}\n{color}Name: /{name}\n{color}Code: {code}\n{color}\n{color}--------------------'
+                                            P = await SEndMsG(
+                                                response.Data.chat_type,
+                                                message, uid, chat_id, key, iv)
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'ChaT', P)
+                                            await asyncio.sleep(seconds)
+
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}All Emotes Completed\n{color}--------------------\n{color}\n{color}Total: {len(all_emotes)} emotes\n{color}Executed successfully\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                        P = await SEndMsG(
+                                            response.Data.chat_type, message,
+                                            uid, chat_id, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
+                                except:
+                                    pass
+
+                        # Emote sequence command (private only)
+                        elif '.' in inPuTMsG and inPuTMsG.startswith(
+                                '/') and not any(
+                                    inPuTMsG.startswith(x) for x in [
+                                        '/uid/', '/e/', '/rmv/', '/help', '/5',
+                                        '/x/', '/spm/', '/s', '/mg', '/89',
+                                        '/emt', '/all/'
+                                    ]):
+                            if not is_private:
+                                continue
+                            parts = inPuTMsG.split('/')
+                            sequence = []
+                            for part in parts[1:]:
+                                if '.' in part:
+                                    try:
+                                        name, timing = part.rsplit('.', 1)
+                                        timing = float(timing)
+                                        code = config_manager.get_emote(name)
+                                        if code:
+                                            sequence.append(
+                                                (name, code, timing))
+                                    except:
+                                        pass
+
+                            if sequence:
+                                owner_uids = config_manager.get_owner_uids()
+                                if not owner_uids:
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}UID Not Found\n{color}--------------------\n{color}\n{color}No UID found\n{color}Please set using\n{color}/uid/{{uid}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+                                else:
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Starting Sequence\n{color}--------------------\n{color}\n{color}Executing {len(sequence)} emotes\n{color}UIDs: {len(owner_uids)}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+
+                                    for name, code, timing in sequence:
+                                        tasks = [
+                                            Emote_k(int(owner_uid), int(code),
+                                                    key, iv, region)
+                                            for owner_uid in owner_uids
+                                        ]
+                                        packets = await asyncio.gather(*tasks)
+                                        for packet in packets:
+                                            await SEndPacKeT(
+                                                whisper_writer, online_writer,
+                                                'OnLine', packet)
+
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}Emote Executed\n{color}--------------------\n{color}\n{color}Name: /{name}\n{color}Code: {code}\n{color}Duration: {timing}s\n{color}\n{color}--------------------'
+                                        P = await SEndMsG(
+                                            response.Data.chat_type, message,
+                                            uid, chat_id, key, iv)
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'ChaT', P)
+                                        await asyncio.sleep(timing)
+
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Sequence Completed\n{color}--------------------\n{color}\n{color}Total: {len(sequence)} emotes\n{color}Executed successfully\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+                            else:
+                                color = get_random_color()
+                                message = f'[B][C]{color}Invalid Sequence\n{color}--------------------\n{color}\n{color}No valid emotes found\n{color}Format:\n{color}/{{name}}.{{sec}}/{{name}}.{{sec}}/\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+
+                        # Execute custom emote command (private only)
+                        elif inPuTMsG.startswith('/') and not any(
+                                inPuTMsG.startswith(x) for x in
+                            [
+                                '/uid/', '/e/', '/rmv/', '/help', '/5', '/x/',
+                                '/spm/', '/s', '/mg', '/89', '/emt', '/all/'
+                            ]) and '.' not in inPuTMsG:
+                            if not is_private:
+                                continue
+                            emote_name = inPuTMsG[1:]
+                            emote_code = config_manager.get_emote(emote_name)
+                            if emote_code:
+                                owner_uids = config_manager.get_owner_uids()
+                                if owner_uids:
+                                    tasks = [
+                                        Emote_k(int(owner_uid),
+                                                int(emote_code), key, iv,
+                                                region)
+                                        for owner_uid in owner_uids
+                                    ]
+                                    packets = await asyncio.gather(*tasks)
+                                    for packet in packets:
+                                        await SEndPacKeT(
+                                            whisper_writer, online_writer,
+                                            'OnLine', packet)
+
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Sent Successfully\n{color}--------------------\n{color}\n{color}Sent successfully\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+                                else:
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}UID Not Found\n{color}--------------------\n{color}\n{color}No UID found\n{color}Please set using\n{color}/uid/{{uid}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type,
+                                                      message, uid, chat_id,
+                                                      key, iv)
+                                    await SEndPacKeT(whisper_writer,
+                                                     online_writer, 'ChaT', P)
+
+                        # Update help command with group response toggle
+                        if inPuTMsG in ("hi", "hello", "fen", "/help"):
+                            # Check if we should respond in group chat
+                            if not is_private and not config_manager.get_group_responses(
+                            ):
+                                pass  # Don't respond in group chat if disabled
+                            else:
+                                uid = response.Data.uid
+                                chat_id = response.Data.Chat_ID
+                                # Two-part message
+                                message1 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PUBLIC COMMANDS\n[FFFFFF]/help - Show commands\n[FFFFFF]/x/{teamcode} - Join group\n[FFFFFF]/5 - Create 5 player group\n[FFFFFF]/solo - Leave group\n[FFFFFF]!e {uid} {emote_code} - Perform emote\n[C][B][FFB300]━━━━━━━━━━━━'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message1, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
+                                await asyncio.sleep(0.3)
+
+                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMUIM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message2, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
                         response = None
-                            
-            whisper_writer.close() ; await whisper_writer.wait_closed() ; whisper_writer = None
-                    
-                    	
-                    	
-        except Exception as e: print(f"ErroR {ip}:{port} - {e}") ; whisper_writer = None
+
+            whisper_writer.close()
+            await whisper_writer.wait_closed()
+            whisper_writer = None
+
+        except Exception as e:
+            print(f"ErroR {ip}:{port} - {e}")
+            whisper_writer = None
         await asyncio.sleep(reconnect_delay)
 
-async def MaiiiinE():
-    Uid , Pw = '4255448857','BB37A7A64E3C5F8B60E623A5D90253622C1385F7BEE8E8CFBB87924D83AEA9F1'
-    
 
-    open_id , access_token = await GeNeRaTeAccEss(Uid , Pw)
-    if not open_id or not access_token: print("ErroR - InvaLid AccounT") ; return None
-    
-    PyL = await EncRypTMajoRLoGin(open_id , access_token)
+async def MaiiiinE():
+    Uid = os.getenv('FREEFIRE_UID')
+    Pw = os.getenv('FREEFIRE_PASSWORD')
+
+    if not Uid or not Pw:
+        print(
+            "ErroR - Missing FREEFIRE_UID or FREEFIRE_PASSWORD environment variables!"
+        )
+        return None
+
+    open_id, access_token = await GeNeRaTeAccEss(Uid, Pw)
+    if not open_id or not access_token:
+        print("ErroR - InvaLid AccounT")
+        return None
+
+    PyL = await EncRypTMajoRLoGin(open_id, access_token)
     MajoRLoGinResPonsE = await MajorLogin(PyL)
-    if not MajoRLoGinResPonsE: print("TarGeT AccounT => BannEd / NoT ReGisTeReD ! ") ; return None
-    
+    if not MajoRLoGinResPonsE:
+        print("TarGeT AccounT => BannEd / NoT ReGisTeReD ! ")
+        return None
+
     MajoRLoGinauTh = await DecRypTMajoRLoGin(MajoRLoGinResPonsE)
     UrL = MajoRLoGinauTh.url
     print(UrL)
@@ -681,40 +1177,54 @@ async def MaiiiinE():
     key = MajoRLoGinauTh.key
     iv = MajoRLoGinauTh.iv
     timestamp = MajoRLoGinauTh.timestamp
-    
-    LoGinDaTa = await GetLoginData(UrL , PyL , ToKen)
-    if not LoGinDaTa: print("ErroR - GeTinG PorTs From LoGin DaTa !") ; return None
+
+    LoGinDaTa = await GetLoginData(UrL, PyL, ToKen)
+    if not LoGinDaTa:
+        print("ErroR - GeTinG PorTs From LoGin DaTa !")
+        return None
     LoGinDaTaUncRypTinG = await DecRypTLoGinDaTa(LoGinDaTa)
     OnLinePorTs = LoGinDaTaUncRypTinG.Online_IP_Port
     ChaTPorTs = LoGinDaTaUncRypTinG.AccountIP_Port
-    OnLineiP , OnLineporT = OnLinePorTs.split(":")
-    ChaTiP , ChaTporT = ChaTPorTs.split(":")
+    OnLineiP, OnLineporT = OnLinePorTs.split(":")
+    ChaTiP, ChaTporT = ChaTPorTs.split(":")
     acc_name = LoGinDaTaUncRypTinG.AccountName
     #print(acc_name)
     print(ToKen)
-    equie_emote(ToKen,UrL)
-    AutHToKen = await xAuThSTarTuP(int(TarGeT) , ToKen , int(timestamp) , key , iv)
+    equie_emote(ToKen, UrL)
+    AutHToKen = await xAuThSTarTuP(int(TarGeT), ToKen, int(timestamp), key, iv)
     ready_event = asyncio.Event()
-    
-    task1 = asyncio.create_task(TcPChaT(ChaTiP, ChaTporT , AutHToKen , key , iv , LoGinDaTaUncRypTinG , ready_event ,region))
-     
+
+    task1 = asyncio.create_task(
+        TcPChaT(ChaTiP, ChaTporT, AutHToKen, key, iv, LoGinDaTaUncRypTinG,
+                ready_event, region))
+
     await ready_event.wait()
     await asyncio.sleep(1)
-    task2 = asyncio.create_task(TcPOnLine(OnLineiP , OnLineporT , key , iv , AutHToKen))
+    task2 = asyncio.create_task(
+        TcPOnLine(OnLineiP, OnLineporT, key, iv, AutHToKen))
     os.system('clear')
-    print(render('SHAZZ', colors=['white', 'green'], align='center'))
+    print(render('1onlysarkar', colors=['white', 'green'], align='center'))
     print('')
     #print(' - ReGioN => {region}'.format(region))
-    print(f" - BoT STarTinG And OnLine on TarGet : {TarGeT} | BOT NAME : {acc_name}\n")
-    print(f" - BoT sTaTus > GooD | OnLinE ! (:")    
-    print(f" - Subscribe > Spideerio | Gaming ! (:")    
-    await asyncio.gather(task1 , task2)
-    
+    print(
+        f" - BoT STarTinG And OnLine on TarGet : {TarGeT} | BOT NAME : {acc_name}\n"
+    )
+    print(f" - BoT sTaTus > GooD | OnLinE ! (:")
+    print(f" - Instagram > @1onlysarkar ! (:")
+    await asyncio.gather(task1, task2)
+
+
 async def StarTinG():
     while True:
-        try: await asyncio.wait_for(MaiiiinE() , timeout = 7 * 60 * 60)
-        except asyncio.TimeoutError: print("Token ExpiRed ! , ResTartinG")
-        except Exception as e: print(f"ErroR TcP - {e} => ResTarTinG ...")
+        try:
+            await asyncio.wait_for(MaiiiinE(), timeout=7 * 60 * 60)
+        except asyncio.TimeoutError:
+            print("Token ExpiRed ! , ResTartinG in 30 seconds...")
+            await asyncio.sleep(30)
+        except Exception as e:
+            print(f"ErroR TcP - {e} => ResTarTinG in 30 seconds...")
+            await asyncio.sleep(30)
+
 
 if __name__ == '__main__':
     asyncio.run(StarTinG())
