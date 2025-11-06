@@ -1045,8 +1045,8 @@ async def TcPChaT(ip,
                                         color = get_random_color()
                                         message = f'[B][C]{color}Emote Executed\n{color}--------------------\n{color}\n{color}Name: /{name}\n{color}Code: {code}\n{color}Duration: {timing}s\n{color}\n{color}--------------------'
                                         P = await SEndMsG(
-                                            response.Data.chat_type, message,
-                                            uid, chat_id, key, iv)
+                                            response.Data.chat_type,
+                                            message, uid, chat_id, key, iv)
                                         await SEndPacKeT(
                                             whisper_writer, online_writer,
                                             'ChaT', P)
@@ -1067,6 +1067,50 @@ async def TcPChaT(ip,
                                                   iv)
                                 await SEndPacKeT(whisper_writer, online_writer,
                                                  'ChaT', P)
+
+                        # Team code emote command: /{teamcode}/{name} (private only)
+                        elif inPuTMsG.startswith('/') and inPuTMsG.count('/') == 2 and len(inPuTMsG.split('/')) == 3 and is_private:
+                            parts = inPuTMsG.split('/')
+                            if parts[1] and parts[2]:
+                                teamcode = parts[1]
+                                emote_name = parts[2]
+                                emote_code = config_manager.get_emote(emote_name)
+
+                                if emote_code:
+                                    owner_uids = config_manager.get_owner_uids()
+                                    if owner_uids:
+                                        try:
+                                            # Step 1: Join team
+                                            join_packet = await GenJoinSquadsPacket(teamcode, key, iv)
+                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', join_packet)
+                                            await asyncio.sleep(0.3)  # Wait for server to register bot in team
+
+                                            # Step 2: Send emotes to all owner UIDs (instant)
+                                            for owner_uid in owner_uids:
+                                                emote_packet = await Emote_k(int(owner_uid), int(emote_code), key, iv, region)
+                                                await SEndPacKeT(whisper_writer, online_writer, 'OnLine', emote_packet)
+
+                                            # Step 3: Leave team (instant)
+                                            leave_packet = await ExiT(None, key, iv)
+                                            await SEndPacKeT(whisper_writer, online_writer, 'OnLine', leave_packet)
+
+                                            # Send confirmation message
+                                            color = get_random_color()
+                                            message = f'[B][C]{color}Team Emote Done\n{color}--------------------\n{color}\n{color}Team: {teamcode}\n{color}Emote: {emote_name}\n{color}Code: {emote_code}\n{color}\n{color}Join → Emote → Leave\n{color}Completed\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                            P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                            await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                        except Exception as e:
+                                            print(f"Team emote error: {e}")
+                                    else:
+                                        color = get_random_color()
+                                        message = f'[B][C]{color}UID Not Found\n{color}--------------------\n{color}\n{color}No UID found\n{color}Please set using\n{color}/uid/{{uid}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                        P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                        await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                else:
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Emote Not Found\n{color}--------------------\n{color}\n{color}Emote "{emote_name}" not found\n{color}Create using\n{color}/e/{{name}}/{{code}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
 
                         # Execute custom emote command (private only)
                         elif inPuTMsG.startswith('/') and not any(
@@ -1110,6 +1154,36 @@ async def TcPChaT(ip,
                                     await SEndPacKeT(whisper_writer,
                                                      online_writer, 'ChaT', P)
 
+                        # Lag command: #{teamcode}/{time} (private only)
+                        elif inPuTMsG.startswith('#') and '/' in inPuTMsG and is_private and not inPuTMsG.startswith('#lag'):
+                            parts = inPuTMsG.split('/')
+                            if len(parts) >= 2:
+                                try:
+                                    teamcode = parts[0].replace('#', '')
+                                    duration = int(parts[1])
+
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Lag Started\n{color}--------------------\n{color}\n{color}Team: {teamcode}\n{color}Duration: {duration}s\n{color}\n{color}Spamming join/leave\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+
+                                    start_time = time.time()
+                                    while time.time() - start_time < duration:
+                                        join_packet = await GenJoinSquadsPacket(teamcode, key, iv)
+                                        await SEndPacKeT(whisper_writer, online_writer, 'OnLine', join_packet)
+                                        await asyncio.sleep(0.2)
+
+                                        leave_packet = await ExiT(None, key, iv)
+                                        await SEndPacKeT(whisper_writer, online_writer, 'OnLine', leave_packet)
+                                        await asyncio.sleep(0.1)
+
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Lag Completed\n{color}--------------------\n{color}\n{color}Team: {teamcode}\n{color}Duration: {duration}s\n{color}\n{color}Finished successfully\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                except:
+                                    pass
+
                         # Update help command with group response toggle
                         if inPuTMsG in ("hi", "hello", "fen", "/help"):
                             # Check if we should respond in group chat
@@ -1128,7 +1202,7 @@ async def TcPChaT(ip,
                                                  'ChaT', P)
                                 await asyncio.sleep(0.3)
 
-                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMUIM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
+                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMIUM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[FFFFFF]/{teamcode}/{name} - Team emote\n[FFFFFF]#lag{teamcode}/{time} - Lag team\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
                                 P = await SEndMsG(response.Data.chat_type,
                                                   message2, uid, chat_id, key,
                                                   iv)
