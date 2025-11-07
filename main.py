@@ -16,6 +16,16 @@ import asyncio
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
+# Load .env file if it exists (for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded environment variables from .env file")
+except ImportError:
+    print("ℹ️  python-dotenv not installed, using system environment variables only")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # VariabLes dyli
@@ -1411,19 +1421,108 @@ async def api_health(request):
     }, status=200)
 
 
+async def api_home(request):
+    """HTTP GET / endpoint - Root page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Free Fire Bot Server</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+            .container {
+                text-align: center;
+                background: rgba(0,0,0,0.3);
+                padding: 40px;
+                border-radius: 15px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            }
+            h1 { font-size: 3em; margin: 0; }
+            .status { 
+                color: #4ade80; 
+                font-size: 1.5em; 
+                margin: 20px 0;
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .info { 
+                margin-top: 20px; 
+                font-size: 0.9em;
+                opacity: 0.8;
+            }
+            .endpoints {
+                margin-top: 30px;
+                text-align: left;
+                background: rgba(255,255,255,0.1);
+                padding: 20px;
+                border-radius: 10px;
+            }
+            .endpoints a {
+                color: #4ade80;
+                text-decoration: none;
+            }
+            .endpoints a:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎮 Free Fire Bot Server</h1>
+            <div class="status">✅ Server is Running</div>
+            <div class="info">
+                <p>Bot Status: <strong>""" + ("Ready" if bot_runtime['ready'] else "Initializing...") + """</strong></p>
+                <p>Region: <strong>""" + str(bot_runtime.get('region', 'N/A')) + """</strong></p>
+            </div>
+            <div class="endpoints">
+                <h3>📡 Available Endpoints:</h3>
+                <ul>
+                    <li><a href="/health">GET /health</a> - Health check</li>
+                    <li><a href="/status">GET /status</a> - Bot status (JSON)</li>
+                    <li>POST /post - Execute emote command</li>
+                    <li>POST /{uid}/{emotecode}/{teamcode} - Post emote</li>
+                </ul>
+            </div>
+            <div class="info">
+                <p style="margin-top: 30px;">Made by <strong>@1onlysarkar</strong></p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return web.Response(text=html_content, content_type='text/html')
+
+
 async def start_http_server():
-    """Start HTTP API server"""
+    """Start HTTP API server with auto port/host detection"""
+    # Auto-detect port from environment (for Coolify, Heroku, Railway, etc.)
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    
     app = web.Application()
-    app.router.add_post('/post', api_post_emote)
-    app.router.add_post('/{uid}/{emotecode}/{teamcode}', api_post_emote_url)
+    app.router.add_get('/', api_home)
     app.router.add_get('/status', api_status)
     app.router.add_get('/health', api_health)
+    app.router.add_post('/post', api_post_emote)
+    app.router.add_post('/{uid}/{emotecode}/{teamcode}', api_post_emote_url)
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 5000)
+    site = web.TCPSite(runner, host, port)
     await site.start()
-    print("HTTP API server started on http://0.0.0.0:5000")
+    print(f"HTTP API server started on http://{host}:{port}")
     return runner
 
 
