@@ -13,3 +13,16 @@ aiohttp
 python-cfonts
 config-manager
 crypto
+aiohttp
+httpx
+protobuf
+protobuf-decoder
+psutil
+pycryptodome
+PyJWT
+python-cfonts
+pytz
+requests
+urllib3
+flask
+flask-cors
