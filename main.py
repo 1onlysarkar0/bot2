@@ -9,6 +9,7 @@ from threading import Thread
 from Pb2 import DEcwHisPErMsG_pb2, MajoRLoGinrEs_pb2, PorTs_pb2, MajoRLoGinrEq_pb2, sQ_pb2, Team_msg_pb2
 from cfonts import render, say
 from config_manager import config_manager
+from aiohttp import web
 
 import random
 import asyncio
@@ -27,6 +28,16 @@ spam_chat_id = None
 spam_uid = None
 Spy = False
 Chat_Leave = False
+
+# Bot Runtime - shared state for API
+bot_runtime = {
+    'online_writer': None,
+    'whisper_writer': None,
+    'key': None,
+    'iv': None,
+    'region': None,
+    'ready': False
+}
 
 #------------------------------------------#
 
@@ -658,6 +669,12 @@ async def TcPChaT(ip,
                             try:
                                 dd = chatdata['5']['data']['16']
                                 print('msg in private')
+                                message = f"[B][C]{get_random_color()}\n\nAccepT My Invitation FasT\n\n"
+                                P = await SEndMsG(response.Data.chat_type,
+                                                  message, uid, chat_id, key,
+                                                  iv)
+                                await SEndPacKeT(whisper_writer, online_writer,
+                                                 'ChaT', P)
                                 EM = await GenJoinSquadsPacket(CodE, key, iv)
                                 await SEndPacKeT(whisper_writer, online_writer,
                                                  'OnLine', EM)
@@ -945,8 +962,8 @@ async def TcPChaT(ip,
                                         color = get_random_color()
                                         message = f'[B][C]{color}Starting All Emotes\n{color}--------------------\n{color}\n{color}Executing {len(all_emotes)} emotes\n{color}Interval: {seconds}s\n{color}UIDs: {len(owner_uids)}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
                                         P = await SEndMsG(
-                                            response.Data.chat_type, message,
-                                            uid, chat_id, key, iv)
+                                            response.Data.chat_type,
+                                            message, uid, chat_id, key, iv)
                                         await SEndPacKeT(
                                             whisper_writer, online_writer,
                                             'ChaT', P)
@@ -1112,6 +1129,49 @@ async def TcPChaT(ip,
                                     P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
                                     await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
 
+                        # Post command: post /{uid}/{emotecode}/{teamcode} (private only)
+                        elif inPuTMsG.startswith('post /') and is_private:
+                            parts = inPuTMsG.replace('post /', '').split('/')
+                            if len(parts) >= 3:
+                                try:
+                                    target_uid = parts[0].strip()
+                                    emote_code = parts[1].strip()
+                                    teamcode = parts[2].strip()
+
+                                    # Validate numeric inputs
+                                    if not target_uid.isdigit() or not emote_code.isdigit():
+                                        raise ValueError("UID and emote code must be numeric")
+
+                                    # Step 1: Join team
+                                    join_packet = await GenJoinSquadsPacket(teamcode, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', join_packet)
+                                    await asyncio.sleep(0.3)  # Wait for server to register bot in team
+
+                                    # Step 2: Send emote to target UID
+                                    emote_packet = await Emote_k(int(target_uid), int(emote_code), key, iv, region)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', emote_packet)
+
+                                    # Step 3: Leave team
+                                    leave_packet = await ExiT(None, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', leave_packet)
+
+                                    # Send confirmation message
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Post Emote Done\n{color}--------------------\n{color}\n{color}Team: {teamcode}\n{color}Target UID: {target_uid}\n{color}Emote Code: {emote_code}\n{color}\n{color}Join → Emote → Leave\n{color}Completed\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                                except Exception as e:
+                                    print(f"Post emote error: {e}")
+                                    color = get_random_color()
+                                    message = f'[B][C]{color}Post Emote Error\n{color}--------------------\n{color}\n{color}Error: {str(e)}\n{color}\n{color}Format: post /{{uid}}/{{emotecode}}/{{teamcode}}\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                    P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                    await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+                            else:
+                                color = get_random_color()
+                                message = f'[B][C]{color}Invalid Format\n{color}--------------------\n{color}\n{color}Format: post /{{uid}}/{{emotecode}}/{{teamcode}}\n{color}\n{color}Example: post /123456789/909000001/ABCD1234\n{color}\n{color}--------------------\n{color}\n{color}Follow on Instagram\n{color}@1onlysarkar'
+                                P = await SEndMsG(response.Data.chat_type, message, uid, chat_id, key, iv)
+                                await SEndPacKeT(whisper_writer, online_writer, 'ChaT', P)
+
                         # Execute custom emote command (private only)
                         elif inPuTMsG.startswith('/') and not any(
                                 inPuTMsG.startswith(x) for x in
@@ -1202,7 +1262,7 @@ async def TcPChaT(ip,
                                                  'ChaT', P)
                                 await asyncio.sleep(0.3)
 
-                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMIUM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[FFFFFF]@{teamcode}/{name} - Team emote\n[FFFFFF]#lag{teamcode}/{time} - Lag team\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
+                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMIUM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{{name}}.{{sec}}/{{name}}.{{sec}}/ - Emote sequence\n[FFFFFF]@{teamcode}/{name} - Team emote\n[FFFFFF]post /{{uid}}/{{code}}/{{team}} - Post emote\n[FFFFFF]#lag{{teamcode}}/{{time}} - Lag team\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
                                 P = await SEndMsG(response.Data.chat_type,
                                                   message2, uid, chat_id, key,
                                                   iv)
@@ -1218,6 +1278,153 @@ async def TcPChaT(ip,
             print(f"ErroR {ip}:{port} - {e}")
             whisper_writer = None
         await asyncio.sleep(reconnect_delay)
+
+
+async def execute_post_emote(target_uid, emote_code, teamcode):
+    """Shared async function to execute post emote command"""
+    global online_writer, whisper_writer
+
+    if not bot_runtime['ready']:
+        raise Exception("Bot is not ready yet")
+
+    key = bot_runtime['key']
+    iv = bot_runtime['iv']
+    region = bot_runtime['region']
+
+    target_uid = str(target_uid).strip()
+    emote_code = str(emote_code).strip()
+    teamcode = str(teamcode).strip()
+
+    if not target_uid.isdigit() or not emote_code.isdigit():
+        raise ValueError("UID and emote code must be numeric")
+
+    join_packet = await GenJoinSquadsPacket(teamcode, key, iv)
+    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', join_packet)
+    await asyncio.sleep(0.3)
+
+    emote_packet = await Emote_k(int(target_uid), int(emote_code), key, iv, region)
+    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', emote_packet)
+
+    leave_packet = await ExiT(None, key, iv)
+    await SEndPacKeT(whisper_writer, online_writer, 'OnLine', leave_packet)
+
+    return {
+        'success': True,
+        'target_uid': target_uid,
+        'emote_code': emote_code,
+        'teamcode': teamcode
+    }
+
+
+async def api_post_emote(request):
+    """HTTP POST /post endpoint"""
+    try:
+        auth_token = request.headers.get('Authorization')
+        api_key = os.getenv('BOT_API_KEY')
+
+        if api_key and auth_token != f'Bearer {api_key}':
+            return web.json_response({
+                'success': False,
+                'error': 'Unauthorized'
+            }, status=401)
+
+        data = await request.json()
+
+        uid = data.get('uid')
+        emotecode = data.get('emotecode')
+        teamcode = data.get('teamcode')
+
+        if not uid or not emotecode or not teamcode:
+            return web.json_response({
+                'success': False,
+                'error': 'Missing required fields: uid, emotecode, teamcode'
+            }, status=400)
+
+        result = await execute_post_emote(uid, emotecode, teamcode)
+
+        return web.json_response({
+            'success': True,
+            'message': 'Post emote executed successfully',
+            'data': result
+        }, status=200)
+
+    except ValueError as e:
+        return web.json_response({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return web.json_response({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }, status=500)
+
+
+async def api_post_emote_url(request):
+    """HTTP POST /{uid}/{emotecode}/{teamcode} endpoint (URL parameters)"""
+    try:
+        uid = request.match_info.get('uid')
+        emotecode = request.match_info.get('emotecode')
+        teamcode = request.match_info.get('teamcode')
+
+        if not uid or not emotecode or not teamcode:
+            return web.json_response({
+                'success': False,
+                'error': 'Missing required fields: uid, emotecode, teamcode'
+            }, status=400)
+
+        result = await execute_post_emote(uid, emotecode, teamcode)
+
+        return web.json_response({
+            'success': True,
+            'message': 'Post emote executed successfully',
+            'data': result
+        }, status=200)
+
+    except ValueError as e:
+        return web.json_response({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return web.json_response({
+            'success': False,
+            'error': f'Internal error: {str(e)}'
+        }, status=500)
+
+
+async def api_status(request):
+    """HTTP GET /status endpoint"""
+    return web.json_response({
+        'status': 'running',
+        'ready': bot_runtime['ready'],
+        'region': bot_runtime.get('region'),
+        'message': 'Free Fire Bot is running'
+    }, status=200)
+
+
+async def api_health(request):
+    """HTTP GET /health endpoint"""
+    return web.json_response({
+        'status': 'healthy',
+        'service': 'Free Fire Bot'
+    }, status=200)
+
+
+async def start_http_server():
+    """Start HTTP API server"""
+    app = web.Application()
+    app.router.add_post('/post', api_post_emote)
+    app.router.add_post('/{uid}/{emotecode}/{teamcode}', api_post_emote_url)
+    app.router.add_get('/status', api_status)
+    app.router.add_get('/health', api_health)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 5000)
+    await site.start()
+    print("HTTP API server started on http://0.0.0.0:5000")
+    return runner
 
 
 async def MaiiiinE():
@@ -1268,12 +1475,19 @@ async def MaiiiinE():
     AutHToKen = await xAuThSTarTuP(int(TarGeT), ToKen, int(timestamp), key, iv)
     ready_event = asyncio.Event()
 
+    bot_runtime['key'] = key
+    bot_runtime['iv'] = iv
+    bot_runtime['region'] = region
+
     task1 = asyncio.create_task(
         TcPChaT(ChaTiP, ChaTporT, AutHToKen, key, iv, LoGinDaTaUncRypTinG,
                 ready_event, region))
 
     await ready_event.wait()
     await asyncio.sleep(1)
+
+    bot_runtime['ready'] = True
+
     task2 = asyncio.create_task(
         TcPOnLine(OnLineiP, OnLineporT, key, iv, AutHToKen))
     os.system('clear')
@@ -1289,8 +1503,12 @@ async def MaiiiinE():
 
 
 async def StarTinG():
+    http_runner = await start_http_server()
+    print("HTTP API server started on http://0.0.0.0:5000")
+
     while True:
         try:
+            bot_runtime['ready'] = False
             await asyncio.wait_for(MaiiiinE(), timeout=7 * 60 * 60)
         except asyncio.TimeoutError:
             print("Token ExpiRed ! , ResTartinG in 30 seconds...")
