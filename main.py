@@ -1068,12 +1068,12 @@ async def TcPChaT(ip,
                                 await SEndPacKeT(whisper_writer, online_writer,
                                                  'ChaT', P)
 
-                        # Team code emote command: /{teamcode}/{name} (private only)
-                        elif inPuTMsG.startswith('/') and inPuTMsG.count('/') == 2 and len(inPuTMsG.split('/')) == 3 and is_private:
+                        # Team code emote command: @{teamcode}/{name} (private only)
+                        elif inPuTMsG.startswith('@') and '/' in inPuTMsG and is_private:
                             parts = inPuTMsG.split('/')
-                            if parts[1] and parts[2]:
-                                teamcode = parts[1]
-                                emote_name = parts[2]
+                            if len(parts) >= 2:
+                                teamcode = parts[0].replace('@', '')
+                                emote_name = parts[1]
                                 emote_code = config_manager.get_emote(emote_name)
 
                                 if emote_code:
@@ -1202,7 +1202,7 @@ async def TcPChaT(ip,
                                                  'ChaT', P)
                                 await asyncio.sleep(0.3)
 
-                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMIUM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[FFFFFF]/{teamcode}/{name} - Team emote\n[FFFFFF]#lag{teamcode}/{time} - Lag team\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
+                                message2 = '[C][B][00FFFF]━━━━━━━━━━━━\n[ffd319][B]PREMIUM COMMANDS\n[FFFFFF]/uid/{uid1}/{uid2}/... - Set owner UIDs\n[FFFFFF]/e/{name}/{code} - Create emote\n[FFFFFF]/rmv/{name} - Remove emote\n[FFFFFF]/emt - List all emotes\n[FFFFFF]/{name} - Execute emote\n[FFFFFF]/all/{seconds} - Run all emotes\n[FFFFFF]/spm/{times}/{uid} - Spam invites\n[FFFFFF]/{name}.{sec}/... - Emote sequence\n[FFFFFF]@{teamcode}/{name} - Team emote\n[FFFFFF]#lag{teamcode}/{time} - Lag team\n[C][B][FFB300]OWNER: 1onlysarkar\n[00FFFF]━━━━━━━━━━━━\n[FFFFFF]Instagram: @1onlysarkar'
                                 P = await SEndMsG(response.Data.chat_type,
                                                   message2, uid, chat_id, key,
                                                   iv)
