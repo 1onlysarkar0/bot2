@@ -1,4 +1,3 @@
-
 requests
 httpx
 google
@@ -13,7 +12,14 @@ aiohttp
 python-cfonts
 config-manager
 crypto
+flask
+flask-cors
+python-dotenv
 aiohttp
+config-manager
+flask
+flask-cors
+google
 httpx
 protobuf
 protobuf-decoder
@@ -24,5 +30,4 @@ python-cfonts
 pytz
 requests
 urllib3
-flask
-flask-cors
+python-dotenv
