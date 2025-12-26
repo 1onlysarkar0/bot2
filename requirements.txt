@@ -1,3 +1,5 @@
+fastapi
+uvicorn
 requests
 httpx
 google
@@ -14,20 +16,4 @@ config-manager
 crypto
 flask
 flask-cors
-python-dotenv
-aiohttp
-config-manager
-flask
-flask-cors
-google
-httpx
-protobuf
-protobuf-decoder
-psutil
-pycryptodome
-PyJWT
-python-cfonts
-pytz
-requests
-urllib3
 python-dotenv
